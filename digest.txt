@@ -1,0 +1,572 @@
+Directory structure:
+└── CSA-20-SPCK/
+    ├── README.md
+    ├── app.py
+    ├── config.py
+    ├── disease-prediction-from-weather.ipynb
+    ├── requirements.txt
+    ├── test.py
+    ├── update-dataset.py
+    ├── weather_information.ipynb
+    └── data/
+        ├── global_climate_health_impact_tracker_2015_2025.csv
+        └── seattle-weather.csv
+
+================================================
+FILE: README.md
+================================================
+# CSA-20-SPCK
+
+## Quick start
+
+1. Create a virtual environment and install dependencies:
+
+```bash
+python -m venv .venv
+source .venv/bin/activate    # or `.venv\Scripts\activate` on Windows
+pip install -r requirements.txt
+```
+
+2. Run the app:
+
+```bash
+streamlit run app.py
+```
+
+Files:
+- `app.py` â€” main page
+- `pages/1_Data_Analysis.py` â€” data exploration
+- `pages/2_Input_Record.py` â€” append rows to CSV
+- `pages/3_Prediction.py` â€” simple training / evaluation / predict
+- `datamodules/DataModule.py` â€” minimal helper to read/visualize CSV
+- `config.py` â€” path constants
+
+
+================================================
+FILE: app.py
+================================================
+[Empty file]
+
+
+================================================
+FILE: config.py
+================================================
+import os
+
+ROOT = os.path.dirname(__file__)
+DATA_DIR = os.path.join(ROOT, "data")
+IMG_DIR = os.path.join(ROOT, "assets")
+
+# Default dataset paths (existing files in workspace)
+TRAIN_PATH = os.path.join(DATA_DIR, "GlobalWeatherRepository.csv")
+HEALTH_PATH = os.path.join(DATA_DIR, "global_climate_health_impact_tracker_2015_2025.csv")
+SEATTLE_PATH = os.path.join(DATA_DIR, "seattle-weather.csv")
+
+os.makedirs(IMG_DIR, exist_ok=True)
+
+
+
+================================================
+FILE: disease-prediction-from-weather.ipynb
+================================================
+# Jupyter notebook converted to Python script.
+
+"""
+# Dự đoán các căn bệnh dựa trên dữ liệu thời tiết và khí hậu
+
+Notebook này hướng dẫn quy trình dự đoán các căn bệnh có thể xảy ra dựa trên dữ liệu thời tiết và sức khỏe từ file `global_climate_health_impact_tracker_2015_2025.csv`.
+"""
+
+"""
+## 1. Import thư viện cần thiết và tải dữ liệu
+
+- Sử dụng pandas, numpy, matplotlib, seaborn, scikit-learn.
+- Đọc file `global_climate_health_impact_tracker_2015_2025.csv` vào DataFrame.
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# TRAIN
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.ensemble import RandomForestRegressor
+
+df = pd.read_csv('data/global_climate_health_impact_tracker_2015_2025.csv')
+
+print('Health rows,cols:', df.shape)
+df.head()
+df.columns
+# Output:
+#   Health rows,cols: (14100, 30)
+
+#   Index(['record_id', 'country_code', 'country_name', 'region', 'income_level',
+
+#          'date', 'year', 'month', 'week', 'latitude', 'longitude',
+
+#          'population_millions', 'temperature_celsius', 'temp_anomaly_celsius',
+
+#          'precipitation_mm', 'heat_wave_days', 'drought_indicator',
+
+#          'flood_indicator', 'extreme_weather_events', 'pm25_ugm3',
+
+#          'air_quality_index', 'respiratory_disease_rate',
+
+#          'cardio_mortality_rate', 'vector_disease_risk_score',
+
+#          'waterborne_disease_incidents', 'heat_related_admissions',
+
+#          'healthcare_access_index', 'gdp_per_capita_usd', 'mental_health_index',
+
+#          'food_security_index'],
+
+#         dtype='object')
+
+"""
+## Heatmap
+"""
+
+import seaborn as sns
+
+# Select only numeric columns for heatmap
+numeric_df = df.select_dtypes(include=[np.number])
+
+# Create heatmap
+plt.figure(figsize=(16, 12))
+sns.heatmap(numeric_df.corr(), annot=True, cmap='coolwarm', center=0, fmt='.2f', cbar_kws={'label': 'Correlation'})
+plt.title('Correlation Heatmap - Climate and Health Variables')
+plt.tight_layout()
+plt.show()
+# Output:
+#   <Figure size 1600x1200 with 2 Axes>
+
+"""
+Ta sẽ huấn luyện mô hình về các vấn đề sức dựa trên các biến có hệ số tương quan mạnh:
+```
+respiratory_disease_rate: pm25, air_qulity_index
+vector_disease_risk_score: temperature_celsius, precipitation_mm, heat_ralated_adminssions
+heat_related_admissions: temperature_celsius, precipitation_mm, heat_wave_days, extreme_weahter_events
+```
+"""
+
+# Model 1: respiratory_disease_rate
+features = ['pm25_ugm3', 'air_quality_index']
+target = 'respiratory_disease_rate'
+
+X = numeric_df[features].dropna()
+y = numeric_df[target].dropna()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Random Forest Regressor
+forestmodel_respiratory_disease_rate = RandomForestRegressor(n_estimators=100, random_state=42)
+forestmodel_respiratory_disease_rate.fit(X_train, y_train)
+y_pred = forestmodel_respiratory_disease_rate.predict(X_test)
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print(mse, r2)
+
+# Vẽ biểu đồ so sánh giá trị thực và giá trị dự đoán
+plt.figure(figsize=(10, 6))
+plt.scatter(y_test, y_pred, color='blue', alpha=0.6)
+plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+plt.xlabel('[Forest] Actual Respiratory Disease Rate')
+
+# Linear Regression
+linmodel_respiratory_disease_rate = LinearRegression()
+linmodel_respiratory_disease_rate.fit(X_train, y_train)
+y_pred = linmodel_respiratory_disease_rate.predict(X_test)
+
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+print(mse, r2)
+
+# => Linear Regression gives better result
+
+# Vẽ biểu đồ so sánh giá trị thực và giá trị dự đoán
+plt.figure(figsize=(10, 6))
+plt.scatter(y_test, y_pred, color='blue', alpha=0.6)
+plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+plt.xlabel('[Linear] Actual Respiratory Disease Rate')
+# Output:
+#   124.43407412462824 0.4731846820713371
+
+#   98.27108957067846 0.5839506529094147
+
+#   C:\Users\lenovo\AppData\Local\Temp\ipykernel_11008\4182802223.py:20: UserWarning: color is redundantly defined by the 'color' keyword argument and the fmt string "k--" (-> color='k'). The keyword argument will take precedence.
+
+#     plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+
+#   C:\Users\lenovo\AppData\Local\Temp\ipykernel_11008\4182802223.py:37: UserWarning: color is redundantly defined by the 'color' keyword argument and the fmt string "k--" (-> color='k'). The keyword argument will take precedence.
+
+#     plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+
+#   Text(0.5, 0, '[Linear] Actual Respiratory Disease Rate')
+#   <Figure size 1000x600 with 1 Axes>
+#   <Figure size 1000x600 with 1 Axes>
+
+# Model 2: vector_disease_risk_score
+features = ['temperature_celsius', 'precipitation_mm', 'heat_related_admissions']
+target = 'vector_disease_risk_score'
+
+X = numeric_df[features].dropna()
+y = numeric_df[target].dropna()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Random Forest Regressor
+forestmodel_vector_disease_risk_score = RandomForestRegressor(n_estimators=100, random_state=42)
+forestmodel_vector_disease_risk_score.fit(X_train, y_train)
+
+y_pred = forestmodel_vector_disease_risk_score.predict(X_test)
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print(mse, r2)
+
+# Vẽ biểu đồ so sánh giá trị thực và giá trị dự đoán
+plt.figure(figsize=(10, 6))
+plt.scatter(y_test, y_pred, color='blue', alpha=0.6)
+plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+plt.xlabel('[Forest] Actual Vector Disease Risk Score')
+
+# Linear Regression
+linmodel_vector_disease_risk_score = LinearRegression()
+linmodel_vector_disease_risk_score.fit(X_train, y_train)
+y_pred = linmodel_vector_disease_risk_score.predict(X_test)
+
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print(mse, r2)
+
+# => Random Forest works better
+
+# Vẽ biểu đồ so sánh giá trị thực và giá trị dự đoán
+plt.figure(figsize=(10, 6))
+plt.scatter(y_test, y_pred, color='blue', alpha=0.6)
+plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+plt.xlabel('[Forest] Actual Vector Disease Risk Score')
+# Output:
+#   26.728699387464673 0.9085955048517242
+
+#   167.66238722177977 0.4266426646053446
+
+#   C:\Users\lenovo\AppData\Local\Temp\ipykernel_11008\829019743.py:21: UserWarning: color is redundantly defined by the 'color' keyword argument and the fmt string "k--" (-> color='k'). The keyword argument will take precedence.
+
+#     plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+
+#   C:\Users\lenovo\AppData\Local\Temp\ipykernel_11008\829019743.py:39: UserWarning: color is redundantly defined by the 'color' keyword argument and the fmt string "k--" (-> color='k'). The keyword argument will take precedence.
+
+#     plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+
+#   Text(0.5, 0, '[Forest] Actual Vector Disease Risk Score')
+#   <Figure size 1000x600 with 1 Axes>
+#   <Figure size 1000x600 with 1 Axes>
+
+# Model 3: heat_related_admissions
+features = ['temperature_celsius', 'precipitation_mm', 'heat_wave_days', 'extreme_weather_events']
+target = 'heat_related_admissions'
+
+X = numeric_df[features].dropna()
+y = numeric_df[target].dropna()
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+# Random Forest Regressor
+forestmodel_heat_related_admissions = RandomForestRegressor(n_estimators=100, random_state=42)
+forestmodel_heat_related_admissions.fit(X_train, y_train)
+
+y_pred = forestmodel_heat_related_admissions.predict(X_test)
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+
+print(mse, r2)
+
+# Vẽ biểu đồ so sánh giá trị thực và giá trị dự đoán
+plt.figure(figsize=(10, 6))
+plt.scatter(y_test, y_pred, color='blue', alpha=0.6)
+plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+plt.xlabel('[Forest] Actual Heat Related Admissions')
+
+# Linear Regression
+linmodel_heat_related_admissions = LinearRegression()
+linmodel_heat_related_admissions.fit(X_train, y_train)
+y_pred = linmodel_heat_related_admissions.predict(X_test)
+
+mse = mean_squared_error(y_test, y_pred)
+r2 = r2_score(y_test, y_pred)
+print(mse, r2)
+
+# => Linear Regression gives better results in all 3 cases
+
+# Vẽ biểu đồ so sánh giá trị thực và giá trị dự đoán
+plt.figure(figsize=(10, 6))
+plt.scatter(y_test, y_pred, color='blue', alpha=0.6)
+plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+plt.xlabel('[Linear] Actual Heat Related Admissions')
+# Output:
+#   33.804759416352844 0.6032112770481663
+
+#   31.2797548416442 0.6328489185502538
+
+#   C:\Users\lenovo\AppData\Local\Temp\ipykernel_11008\4292638018.py:21: UserWarning: color is redundantly defined by the 'color' keyword argument and the fmt string "k--" (-> color='k'). The keyword argument will take precedence.
+
+#     plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+
+#   C:\Users\lenovo\AppData\Local\Temp\ipykernel_11008\4292638018.py:38: UserWarning: color is redundantly defined by the 'color' keyword argument and the fmt string "k--" (-> color='k'). The keyword argument will take precedence.
+
+#     plt.plot([y.min(), y.max()], [y.min(), y.max()], 'k--', lw=2, color='red')
+
+#   Text(0.5, 0, '[Linear] Actual Heat Related Admissions')
+#   <Figure size 1000x600 with 1 Axes>
+#   <Figure size 1000x600 with 1 Axes>
+
+
+
+================================================
+FILE: requirements.txt
+================================================
+streamlit
+pandas
+plotly
+scikit-learn
+numpy
+
+================================================
+FILE: weather_information.ipynb
+================================================
+# Jupyter notebook converted to Python script.
+
+"""
+## Import thư viện
+"""
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+
+# TRAIN
+from sklearn.linear_model import LinearRegression
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import mean_squared_error, r2_score
+from sklearn.ensemble import RandomForestRegressor
+
+df = pd.read_csv('data/GlobalWeatherRepository.csv')
+df.head()
+df.columns
+# Output:
+#   Index(['country', 'location_name', 'latitude', 'longitude', 'timezone',
+
+#          'last_updated_epoch', 'last_updated', 'temperature_celsius',
+
+#          'temperature_fahrenheit', 'condition_text', 'wind_mph', 'wind_kph',
+
+#          'wind_degree', 'wind_direction', 'pressure_mb', 'pressure_in',
+
+#          'precip_mm', 'precip_in', 'humidity', 'cloud', 'feels_like_celsius',
+
+#          'feels_like_fahrenheit', 'visibility_km', 'visibility_miles',
+
+#          'uv_index', 'gust_mph', 'gust_kph', 'air_quality_Carbon_Monoxide',
+
+#          'air_quality_Ozone', 'air_quality_Nitrogen_dioxide',
+
+#          'air_quality_Sulphur_dioxide', 'air_quality_PM2.5', 'air_quality_PM10',
+
+#          'air_quality_us-epa-index', 'air_quality_gb-defra-index', 'sunrise',
+
+#          'sunset', 'moonrise', 'moonset', 'moon_phase', 'moon_illumination'],
+
+#         dtype='object')
+
+df['last_updated'] = pd.to_datetime(df['last_updated'])
+daily_stats = df.groupby(df['last_updated'].dt.date).mean(numeric_only=True).tail(30)
+
+# LẤY THEO KHU VỰC
+region = 'Vietnam'
+df = df[(df['country'] == region) & (df['location_name'] == "Hanoi")]
+
+fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(10, 8), sharex=True)
+
+ax1.plot(daily_stats.index, daily_stats['temperature_celsius'], 'r-o')
+ax1.set_ylabel('Nhiệt độ (°C)')
+ax1.set_title('Nhiệt độ trung bình 30 ngày')
+
+ax2.plot(daily_stats.index, daily_stats['air_quality_PM2.5'], 'b-s')
+ax2.set_ylabel('PM 2.5')
+ax2.set_title('Chất lượng không khí (PM 2.5) 30 ngày')
+
+plt.xticks(rotation=45)
+plt.tight_layout()
+plt.show()
+# Output:
+#   <Figure size 1000x800 with 2 Axes>
+
+# Đếm số lần xuất hiện của các loại thời tiết
+condition_counts = df['condition_text'].value_counts().head(10)
+
+# Vẽ biểu đồ cột
+condition_counts.plot(kind='barh', color='orange', figsize=(10, 5))
+plt.title('Top 10 điều kiện thời tiết phổ biến nhất')
+plt.xlabel('Số lượng địa điểm')
+plt.show()
+# Output:
+#   <Figure size 1000x500 with 1 Axes>
+
+"""
+## Mô hình dự đoán
+"""
+
+# TRAIN MODEL
+df['hour'] = df['last_updated'].dt.hour
+features = ['latitude', 'humidity', 'pressure_mb', 'wind_kph', 'cloud', 'hour']
+# data = df.sort_values('last_updated').tail(10000)
+data = df.sort_values('last_updated')
+
+X = data[features]
+y = data['temperature_celsius']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+model = RandomForestRegressor(n_estimators=100, random_state=42) # n_estimators là số cây trong rừng, random_state để tái lập kết quả
+model.fit(X_train, y_train)
+
+y_pred = model.predict(X_test)
+rmse = np.sqrt(mean_squared_error(y_test, y_pred))
+r2 = r2_score(y_test, y_pred)
+
+print(f"RMSE: {rmse:.2f}°C | R²: {r2:.2f}")
+# Output:
+#   RMSE: 1.77°C | R²: 0.90
+
+
+import matplotlib.pyplot as plt
+
+plt.figure(figsize=(8, 6))
+plt.scatter(y_test, y_pred, alpha=0.5, color='darkgreen')
+plt.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
+
+plt.xlabel('Nhiệt độ thực tế (°C)')
+plt.ylabel('Nhiệt độ dự đoán (°C)')
+plt.show()
+# Output:
+#   <Figure size 800x600 with 1 Axes>
+
+import pandas as pd
+feat_importances = pd.Series(model.feature_importances_, index=features)
+feat_importances.nlargest(10).plot(kind='barh')
+plt.title('Yếu tố nào ảnh hưởng đến nhiệt độ nhất?')
+plt.show()
+# Output:
+#   <Figure size 640x480 with 1 Axes>
+
+# Dự đoán nhiệt độ mới dùng dữ liệu realtime của open-metro
+import requests
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from datetime import datetime
+
+LAT, LON = 21.02, 105.83  # Tọa độ Hà Nội
+url = f"https://api.open-meteo.com/v1/forecast?latitude={LAT}&longitude={LON}&current=relative_humidity_2m,surface_pressure,wind_speed_10m,cloud_cover&timezone=auto"
+
+
+response = requests.get(url)
+data_json = response.json()
+current = data_json['current']
+new_data = pd.DataFrame([{
+    'latitude': LAT,
+    'humidity': current['relative_humidity_2m'],
+    'pressure_mb': current['surface_pressure'],
+    'wind_kph': current['wind_speed_10m'] * 3.6,  # m/s to km/h
+    'cloud': current['cloud_cover'],
+    'hour': datetime.now().hour
+}])
+new_data
+
+predictions = model.predict(new_data)
+print(f"Dự đoán nhiệt độ (trung bình): {predictions[0]:.2f}°C")
+print(f"Dự đoán nhiệt độ (min): {(predictions[0] - rmse):.2f}°C")
+print(f"Dự đoán nhiệt độ (max): {(predictions[0] + rmse):.2f}°C")
+# Output:
+#   Dự đoán nhiệt độ (trung bình): 20.35°C
+
+#   Dự đoán nhiệt độ (min): 18.57°C
+
+#   Dự đoán nhiệt độ (max): 22.12°C
+
+
+
+
+================================================
+FILE: data/global_climate_health_impact_tracker_2015_2025.csv
+================================================
+record_id,country_code,country_name,region,income_level,date,year,month,week,latitude,longitude,population_millions,temperature_celsius,temp_anomaly_celsius,precipitation_mm,heat_wave_days,drought_indicator,flood_indicator,extreme_weather_events,pm25_ugm3,air_quality_index,respiratory_disease_rate,cardio_mortality_rate,vector_disease_risk_score,waterborne_disease_incidents,heat_related_admissions,healthcare_access_index,gdp_per_capita_usd,mental_health_index,food_security_index
+1,USA,United States,North America,High,2015-01-04,2015,1,1,37.09,-95.71,331,4.59,0.76,75.7,0,0,0,0,39.0,82.0,69.4,31.5,6.6,16.2,1.4,77.3,63627.0,71.2,90.2
+2,USA,United States,North America,High,2015-01-11,2015,1,2,37.09,-95.71,331,3.13,-0.5,97.0,0,0,0,0,17.9,6.0,70.0,26.3,5.2,11.4,0.0,83.6,63627.0,70.6,94.0
+3,USA,United States,North America,High,2015-01-18,2015,1,3,37.09,-95.71,331,3.99,-0.14,74.1,0,0,0,0,91.5,137.0,66.9,33.4,1.3,19.5,0.0,84.7,63627.0,63.4,100.0
+4,USA,United States,North America,High,2015-01-25,2015,1,4,37.09,-95.71,331,6.43,-0.06,87.7,0,0,0,0,5.5,-3.0,47.0,35.0,6.0,9.7,9.0,84.3,63627.0,68.1,96.4
+5,USA,United States,North America,High,2015-02-01,2015,2,5,37.09,-95.71,331,9.0,0.47,75.8,1,0,0,1,37.1,48.0,61.3,28.3,1.4,22.6,27.3,83.6,63733.0,69.1,100.0
+6,USA,United States,North America,High,2015-02-08,2015,2,6,37.09,-95.71,331,6.44,0.18,151.0,0,0,0,0,114.1,157.0,80.2,30.6,0.7,23.7,11.9,78.0,63733.0,70.1,97.1
+7,USA,United States,North America,High,2015-02-15,2015,2,7,37.09,-95.71,331,6.86,0.38,102.1,0,0,0,0,28.9,51.0,70.3,33.2,5.9,25.4,9.1,81.7,63733.0,68.5,100.0
+8,USA,United States,North America,High,2015-02-22,2015,2,8,37.09,-95.71,331,8.34,0.64,102.9,1,0,0,1,0.0,5.0,48.0,33.3,6.4,17.7,20.3,86.7,63733.0,59.4,95.0
+9,USA,United States,North America,High,2015-03-01,2015,3,9,37.09,-95.71,331,9.58,-0.83,82.2,0,0,0,0,18.8,29.0,80.3,24.9,5.9,18.3,7.8,84.9,63839.0,75.7,100.0
+10,USA,United States,North America,High,2015-03-08,2015,3,10,37.09,-95.71,331,8.25,0.71,74.5,1,0,0,1,20.3,22.0,59.1,32.5,0.3,18.8,13.7,87.1,63839.0,71.9,95.2
+11,USA,United States,North America,High,2015-03-15,2015,3,11,37.09,-95.71,331,8.83,-0.16,142.7,1,0,0,1,0.7,-23.0,54.1,32.0,7.3,12.3,13.6,83.2,63839.0,72.1,100.0
+12,USA,United States,North America,High,2015-03-22,2015,3,12,37.09,-95.71,331,11.32,-0.34,126.3,0,0,0,0,40.4,73.0,63.9,22.2,8.1,25.1,20.8,79.1,63839.0,65.2,96.0
+13,USA,United States,North America,High,2015-03-29,2015,3,13,37.09,-95.71,331,12.28,0.64,132.7,0,0,0,0,57.0,82.0,59.6,28.7,2.6,18.1,20.8,82.5,63839.0,71.4,100.0
+14,USA,United States,North America,High,2015-04-05,2015,4,14,37.09,-95.71,331,13.64,-0.13,201.5,0,0,0,0,0.0,7.0,47.8,32.9,6.4,18.1,17.6,85.1,63945.0,62.4,97.5
+15,USA,United States,North America,High,2015-04-12,2015,4,15,37.09,-95.71,331,11.04,-0.62,124.5,0,0,0,0,44.7,71.0,55.3,32.2,5.2,22.9,21.9,85.2,63945.0,65.2,100.0
+16,USA,United States,North America,High,2015-04-19,2015,4,16,37.09,-95.71,331,9.17,0.16,125.9,1,0,0,1,70.8,106.0,86.5,37.2,5.7,19.4,15.1,79.9,63945.0,62.0,100.0
+17,USA,United States,North America,High,2015-04-26,2015,4,17,37.09,-95.71,331,9.96,-0.26,62.8,0,0,0,0,56.4,77.0,77.8,29.0,1.8,14.9,17.8,82.6,63945.0,66.3,100.0
+18,USA,United States,North America,High,2015-05-03,2015,5,18,37.09,-95.71,331,8.29,1.08,133.2,2,0,0,2,59.6,80.0,67.4,30.1,2.7,26.8,25.4,77.7,64051.0,67.4,100.0
+19,USA,United States,North America,High,2015-05-10,2015,5,19,37.09,-95.71,331,10.93,0.64,122.7,1,0,0,1,76.7,104.0,62.2,33.5,10.6,18.4,19.7,76.5,64051.0,63.0,99.2
+20,USA,United States,North America,High,2015-05-17,2015,5,20,37.09,-95.71,331,5.8,0.78,147.9,0,0,0,0,27.2,34.0,58.7,45.6,6.2,23.1,5.1,82.9,64051.0,70.3,100.0
+21,USA,United States,North America,High,2015-05-24,2015,5,21,37.09,-95.71,331,3.88,0.65,86.2,0,0,0,0,95.6,154.0,79.4,35.4,4.7,16.1,3.3,80.6,64051.0,74.4,97.4
+22,USA,United States,North America,High,2015-05-31,2015,5,22,37.09,-95.71,331,6.17,0.48,144.2,0,0,0,0,40.2,69.0,55.8,36.8,6.7,15.0,0.0,86.0,64051.0,63.9,96.4
+23,USA,United States,North America,High,2015-06-07,2015,6,23,37.09,-95.71,331,9.14,-0.21,84.1,1,0,0,1,49.7,67.0,76.4,29.3,7.6,17.1,17.7,77.1,64157.0,79.1,100.0
+24,USA,United States,North America,High,2015-06-14,2015,6,24,37.09,-95.71,331,4.24,0.61,56.0,0,0,0,0,68.1,112.0,63.4,33.0,0.0,27.4,1.4,86.6,64157.0,74.0,100.0
+
+================================================
+FILE: data/seattle-weather.csv
+================================================
+date,precipitation,temp_max,temp_min,wind,weather
+2012-01-01,0.0,12.8,5.0,4.7,drizzle
+2012-01-02,10.9,10.6,2.8,4.5,rain
+2012-01-03,0.8,11.7,7.2,2.3,rain
+2012-01-04,20.3,12.2,5.6,4.7,rain
+2012-01-05,1.3,8.9,2.8,6.1,rain
+2012-01-06,2.5,4.4,2.2,2.2,rain
+2012-01-07,0.0,7.2,2.8,2.3,rain
+2012-01-08,0.0,10.0,2.8,2.0,sun
+2012-01-09,4.3,9.4,5.0,3.4,rain
+2012-01-10,1.0,6.1,0.6,3.4,rain
+2012-01-11,0.0,6.1,-1.1,5.1,sun
+2012-01-12,0.0,6.1,-1.7,1.9,sun
+2012-01-13,0.0,5.0,-2.8,1.3,sun
+2012-01-14,4.1,4.4,0.6,5.3,snow
+2012-01-15,5.3,1.1,-3.3,3.2,snow
+2012-01-16,2.5,1.7,-2.8,5.0,snow
+2012-01-17,8.1,3.3,0.0,5.6,snow
+2012-01-18,19.8,0.0,-2.8,5.0,snow
+2012-01-19,15.2,-1.1,-2.8,1.6,snow
+2012-01-20,13.5,7.2,-1.1,2.3,snow
+2012-01-21,3.0,8.3,3.3,8.2,rain
+2012-01-22,6.1,6.7,2.2,4.8,rain
+2012-01-23,0.0,8.3,1.1,3.6,rain
+2012-01-24,8.6,10.0,2.2,5.1,rain
+2012-01-25,8.1,8.9,4.4,5.4,rain
+2012-01-26,4.8,8.9,1.1,4.8,rain
+2012-01-27,0.0,6.7,-2.2,1.4,drizzle
+2012-01-28,0.0,6.7,0.6,2.2,rain
+2012-01-29,27.7,9.4,3.9,4.5,rain
+2012-01-30,3.6,8.3,6.1,5.1,rain
+2012-01-31,1.8,9.4,6.1,3.9,rain
+2012-02-01,13.5,8.9,3.3,2.7,rain
+2012-02-02,0.0,8.3,1.7,2.6,sun
+2012-02-03,0.0,14.4,2.2,5.3,sun
+2012-02-04,0.0,15.6,5.0,4.3,sun
+2012-02-05,0.0,13.9,1.7,2.9,sun
+2012-02-06,0.0,16.1,1.7,5.0,sun
+2012-02-07,0.3,15.6,7.8,5.3,rain
+2012-02-08,2.8,10.0,5.0,2.7,rain
+2012-02-09,2.5,11.1,7.8,2.4,rain
+2012-02-10,2.5,12.8,6.7,3.0,rain
+2012-02-11,0.8,8.9,5.6,3.4,rain
