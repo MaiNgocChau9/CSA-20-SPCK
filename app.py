@@ -1,6 +1,7 @@
 """
 Ứng dụng Phân tích Khí hậu và Sức khỏe
 Dự đoán tác động của khí hậu đến sức khỏe con người
+Update: Thêm Tab giải thích và Xu hướng nhiệt độ theo năm
 """
 
 import streamlit as st
@@ -34,7 +35,7 @@ def load_health_data():
         df['date'] = pd.to_datetime(df['date'])
         return df
     except FileNotFoundError:
-        st.error("❌ Không tìm thấy file dữ liệu sức khỏe!")
+        st.error("❌ Không tìm thấy file dữ liệu sức khỏe (global_climate_health_impact_tracker_2015_2025.csv)!")
         return None
 
 @st.cache_data
@@ -45,7 +46,7 @@ def load_weather_data():
         df['last_updated'] = pd.to_datetime(df['last_updated'])
         return df
     except FileNotFoundError:
-        st.error("❌ Không tìm thấy file dữ liệu thời tiết!")
+        st.error("❌ Không tìm thấy file dữ liệu thời tiết (GlobalWeatherRepository.csv)!")
         return None
 
 @st.cache_data
@@ -355,7 +356,7 @@ def main():
                 "📋 Báo cáo Nghiên cứu", 
                 "🔥 Tương quan",
                 "📈 Hiệu suất Mô hình",
-                "📉 Xu hướng"
+                "📉 Xu hướng Chi tiết"
             ])
             
             # ===== TAB 1: TỔNG QUAN =====
@@ -446,7 +447,6 @@ def main():
                 **Cách thức tác động:**
                 - **Nhiệt độ**: Môi trường ấm (>25°C) tạo điều kiện thuận lợi cho muỗi, ruồi và các sinh vật trung gian sinh sản nhanh
                 - **Lượng mưa**: Tạo vũng nước đọng - nơi sinh sản lý tưởng cho muỗi truyền bệnh sốt rét, sốt xuất huyết
-                - **Ca nhập viện liên quan nắng nóng**: Chỉ báo gián tiếp về điều kiện khí hậu thuận lợi cho dịch bệnh
                 - Chu kỳ sinh trưởng của muỗi rút ngắn từ 10 ngày xuống 7 ngày khi nhiệt độ tăng
                 
                 **Mức độ tác động:** {'Cao' if vector_diff > 1 else 'Trung bình'} | **Số mẫu phân tích:** {len(temp_high):,}
@@ -537,7 +537,7 @@ def main():
                 axes[0].grid(True, alpha=0.3)
                 
                 region_stats['vector_disease_risk_score'].plot(kind='barh', ax=axes[1], color='coral')
-                axes[1].set_title('Điểm Rủi ro Bệnh Vector theo Vùng')
+                axes[1].set_title('Điểm Rủi ro Bệnh truyền nhiễm theo Vùng')
                 axes[1].set_xlabel('Điểm rủi ro')
                 axes[1].grid(True, alpha=0.3)
                 
@@ -678,7 +678,7 @@ def main():
             
             # ===== TAB 5: XU HƯỚNG =====
             with tab5:
-                st.subheader("📉 Xu hướng Theo Thời gian")
+                st.subheader("📉 Xu hướng Chi tiết Theo Ngày")
                 
                 col1, col2 = st.columns(2)
                 
@@ -731,29 +731,6 @@ def main():
                         st.metric("📉 Thấp nhất", f"{country_data[metric].min():.2f}")
                     with col4:
                         st.metric("📏 Độ lệch chuẩn", f"{country_data[metric].std():.2f}")
-                    
-                    # So sánh theo năm
-                    st.divider()
-                    st.subheader("📅 So sánh theo Năm")
-                    
-                    yearly_data = country_data.groupby('year')[metric].agg(['mean', 'min', 'max']).reset_index()
-                    
-                    fig, ax = plt.subplots(figsize=(12, 5))
-                    x = yearly_data['year']
-                    ax.plot(x, yearly_data['mean'], marker='o', linewidth=2, label='Trung bình')
-                    ax.fill_between(x, yearly_data['min'], yearly_data['max'], 
-                                    alpha=0.3, label='Khoảng dao động')
-                    ax.set_xlabel('Năm')
-                    ax.set_ylabel(metric.replace('_', ' ').title())
-                    ax.set_title(f'Biến động theo Năm - {country}')
-                    ax.legend()
-                    ax.grid(True, alpha=0.3)
-                    plt.tight_layout()
-                    st.pyplot(fig)
-                    plt.close()
-                    
-                    with st.expander("📋 Xem Dữ liệu theo Năm"):
-                        st.dataframe(yearly_data, use_container_width=True)
                 else:
                     st.warning(f"⚠️ Không có dữ liệu cho {country}")
     
@@ -898,138 +875,187 @@ def main():
     
     # ===== TRANG DỰ ĐOÁN NHIỆT ĐỘ =====
     elif menu == "🌡️ Dự đoán Nhiệt độ":
-        st.header("🌡️ Dự đoán Nhiệt độ")
+        st.header("🌡️ Dự đoán & Phân tích Nhiệt độ")
         
         weather_df = load_weather_data()
-        
+        health_df = load_health_data() # Dùng cho biểu đồ xu hướng
+
         if weather_df is not None:
-            if st.button("🚀 Huấn luyện Mô hình", type="primary"):
-                with st.spinner("⏳ Đang huấn luyện..."):
-                    model, rmse, r2, features = train_temperature_model(weather_df)
-                    st.session_state['temp_model'] = model
-                    st.session_state['temp_rmse'] = rmse
-                    st.session_state['temp_r2'] = r2
-                    st.session_state['temp_features'] = features
-                    
-                    st.success(f"✅ Hoàn tất! RMSE: {rmse:.2f}°C, R²: {r2:.2f}")
-                    
-                    # Hiển thị feature importance
+            
+            # TẠO TABS CHO PHẦN DỰ ĐOÁN NHIỆT ĐỘ
+            temp_tab1, temp_tab2, temp_tab3 = st.tabs([
+                "🔮 Mô hình & Dự đoán", 
+                "📖 Giải thích Đặc trưng", 
+                "📉 Xu hướng Nhiệt độ (Năm)"
+            ])
+
+            # --- TAB 1: MODEL ---
+            with temp_tab1:
+                st.subheader("🤖 Huấn luyện Mô hình & Dự báo Thực tế")
+                
+                if st.button("🚀 Huấn luyện Mô hình Nhiệt độ", type="primary"):
+                    with st.spinner("⏳ Đang huấn luyện..."):
+                        model, rmse, r2, features = train_temperature_model(weather_df)
+                        st.session_state['temp_model'] = model
+                        st.session_state['temp_rmse'] = rmse
+                        st.session_state['temp_r2'] = r2
+                        st.session_state['temp_features'] = features
+                        st.session_state['temp_feature_importances'] = model.feature_importances_
+                        
+                        st.success(f"✅ Hoàn tất! RMSE: {rmse:.2f}°C, R²: {r2:.2f}")
+
+                if 'temp_model' in st.session_state:
                     st.divider()
-                    st.subheader("📊 Tầm quan trọng của các Đặc trưng")
+                    st.subheader("🔮 Dự đoán Thời gian thực (Open-Meteo API)")
                     
-                    importances = model.feature_importances_
-                    feature_imp_df = pd.DataFrame({
-                        'Đặc trưng': features,
-                        'Mức độ quan trọng': importances
-                    }).sort_values('Mức độ quan trọng', ascending=False)
-                    
-                    col1, col2 = st.columns([2, 1])
-                    
+                    col1, col2 = st.columns(2)
                     with col1:
-                        # Vẽ biểu đồ
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        feature_imp_df.plot(x='Đặc trưng', y='Mức độ quan trọng', 
-                                           kind='barh', ax=ax, color='steelblue', legend=False)
-                        ax.set_xlabel('Mức độ Quan trọng', fontsize=12)
-                        ax.set_ylabel('Đặc trưng', fontsize=12)
-                        ax.set_title('Các yếu tố Ảnh hưởng đến Nhiệt độ', fontsize=14, pad=15)
-                        ax.grid(True, alpha=0.3, axis='x')
-                        plt.tight_layout()
-                        st.pyplot(fig)
-                        plt.close()
+                        lat = st.number_input("Vĩ độ (Latitude):", min_value=-90.0, max_value=90.0, value=21.02, step=0.01)
+                        lon = st.number_input("Kinh độ (Longitude):", min_value=-180.0, max_value=180.0, value=105.83, step=0.01)
                     
                     with col2:
-                        st.write("**Giải thích các đặc trưng:**")
-                        st.dataframe(
-                            feature_imp_df.style.format({'Mức độ quan trọng': '{:.4f}'}),
-                            use_container_width=True
-                        )
+                        st.info("""
+                        **Tọa độ tham khảo:**
+                        - Hà Nội: 21.02, 105.83
+                        - TP.HCM: 10.82, 106.63
+                        - Đà Nẵng: 16.07, 108.22
+                        """)
                     
+                    if st.button("🌐 Lấy Dữ liệu & Dự đoán", type="primary"):
+                        weather_data = get_realtime_weather(lat, lon)
+                        
+                        if weather_data:
+                            new_data = pd.DataFrame([weather_data])
+                            prediction = st.session_state['temp_model'].predict(new_data)[0]
+                            rmse = st.session_state['temp_rmse']
+                            
+                            st.divider()
+                            st.subheader("📊 Kết quả Dự báo")
+                            
+                            r_col1, r_col2, r_col3 = st.columns(3)
+                            
+                            with r_col1:
+                                st.metric("🌡️ Nhiệt độ Dự báo", f"{prediction:.2f}°C")
+                            with r_col2:
+                                st.metric("❄️ Cận dưới (Min)", f"{(prediction - rmse):.2f}°C")
+                            with r_col3:
+                                st.metric("🔥 Cận trên (Max)", f"{(prediction + rmse):.2f}°C")
+                            
+                            st.caption(f"Dự báo dựa trên độ ẩm {weather_data['humidity']}%, gió {weather_data['wind_kph']:.1f} km/h, mây {weather_data['cloud']}%")
+
+            # --- TAB 2: EXPLANATION ---
+            with temp_tab2:
+                st.subheader("📖 Kiến thức Khí tượng & Đặc trưng")
+                
+                # Hiển thị biểu đồ tầm quan trọng nếu đã train model
+                if 'temp_feature_importances' in st.session_state and 'temp_features' in st.session_state:
+                    st.write("**📊 Tầm quan trọng của các yếu tố (từ Mô hình đã học):**")
+                    
+                    feat_df = pd.DataFrame({
+                        'Đặc trưng': st.session_state['temp_features'],
+                        'Importance': st.session_state['temp_feature_importances']
+                    }).sort_values('Importance', ascending=False)
+                    
+                    fig, ax = plt.subplots(figsize=(10, 4))
+                    sns.barplot(data=feat_df, x='Importance', y='Đặc trưng', ax=ax, palette='viridis')
+                    ax.set_title('Mức độ ảnh hưởng đến Nhiệt độ')
+                    st.pyplot(fig)
+                    plt.close()
                     st.divider()
-                    st.write("**📖 Cách các đặc trưng tác động đến Nhiệt độ:**")
-                    
-                    # Phân tích chi tiết từng feature
-                    top_feature = feature_imp_df.iloc[0]['Đặc trưng']
-                    top_importance = feature_imp_df.iloc[0]['Mức độ quan trọng']
-                    
-                    st.info(f"""
-                    **1. Vĩ độ (Latitude)** - {'⭐ Quan trọng nhất' if top_feature == 'latitude' else 'Quan trọng'}
-                    - Quyết định lượng bức xạ mặt trời nhận được
-                    - Vùng xích đạo (vĩ độ thấp) nhận nhiều năng lượng hơn → nhiệt độ cao
-                    - Vùng cực (vĩ độ cao) nhận ít năng lượng → nhiệt độ thấp
-                    
-                    **2. Độ ẩm (Humidity)** - {'⭐ Quan trọng nhất' if top_feature == 'humidity' else 'Quan trọng'}
-                    - Không khí ẩm giữ nhiệt tốt hơn không khí khô
-                    - Độ ẩm cao làm tăng cảm giác nóng bức (nhiệt độ cảm nhận)
-                    - Ảnh hưởng đến khả năng bay hơi và làm mát tự nhiên
-                    
-                    **3. Áp suất (Pressure)** - {'⭐ Quan trọng nhất' if top_feature == 'pressure_mb' else 'Quan trọng'}
-                    - Áp suất cao thường đi kèm với trời quang, nắng nóng
-                    - Áp suất thấp thường có mây che, nhiệt độ thấp hơn
-                    - Ảnh hưởng đến sự di chuyển của khối khí và thời tiết
-                    
-                    **4. Tốc độ gió (Wind Speed)** - {'⭐ Quan trọng nhất' if top_feature == 'wind_kph' else 'Quan trọng'}
-                    - Gió mạnh làm tăng bay hơi → giảm nhiệt độ
-                    - Gió mang khí lạnh/nóng từ nơi khác đến
-                    - Ảnh hưởng đến nhiệt độ cảm nhận (wind chill)
-                    
-                    **5. Độ che phủ mây (Cloud Cover)** - {'⭐ Quan trọng nhất' if top_feature == 'cloud' else 'Quan trọng'}
-                    - Mây che chắn bức xạ mặt trời ban ngày → nhiệt độ thấp hơn
-                    - Mây giữ nhiệt ban đêm → nhiệt độ không xuống quá thấp
-                    - Tác động ngược chiều giữa ngày và đêm
-                    
-                    **6. Giờ trong ngày (Hour)** - {'⭐ Quan trọng nhất' if top_feature == 'hour' else 'Quan trọng'}
-                    - Chu kỳ nhiệt độ theo ngày: thấp nhất lúc bình minh, cao nhất lúc 14-15h
-                    - Phản ánh góc chiếu của mặt trời
-                    - Quan trọng cho dự đoán thời điểm trong ngày
-                    """)
-                    
-                    st.success(f"""
-                    **💡 Kết luận:** 
-                    Đặc trưng quan trọng nhất là **{top_feature}** với mức độ ảnh hưởng **{top_importance:.1%}**, 
-                    cho thấy yếu tố này đóng vai trò chủ đạo trong việc quyết định nhiệt độ tại một địa điểm.
-                    """)
-            
-            if 'temp_model' in st.session_state:
-                st.divider()
-                st.subheader("🔮 Dự đoán Nhiệt độ")
+                else:
+                    st.info("💡 Hãy huấn luyện mô hình ở Tab 'Dự đoán' để xem biểu đồ mức độ quan trọng thực tế.")
                 
-                col1, col2 = st.columns(2)
-                with col1:
-                    lat = st.number_input("Vĩ độ:", min_value=-90.0, max_value=90.0, value=21.02, step=0.01)
-                    lon = st.number_input("Kinh độ:", min_value=-180.0, max_value=180.0, value=105.83, step=0.01)
+                st.markdown("### Giải thích chi tiết các yếu tố ảnh hưởng:")
                 
-                with col2:
+                col_exp1, col_exp2 = st.columns(2)
+                
+                with col_exp1:
+                    st.success("""
+                    **1. Vĩ độ (Latitude)**
+                    - **Ý nghĩa:** Khoảng cách từ vị trí đến xích đạo.
+                    - **Tác động:** Vùng xích đạo (vĩ độ thấp) nhận nhiều năng lượng mặt trời hơn nên nóng hơn. Vùng cực (vĩ độ cao) lạnh hơn.
+                    
+                    **2. Độ ẩm (Humidity)**
+                    - **Ý nghĩa:** Lượng hơi nước trong không khí.
+                    - **Tác động:** Không khí ẩm giữ nhiệt tốt hơn (hiệu ứng nhà kính cục bộ). Độ ẩm cao làm giảm sự bay hơi, khiến cảm giác nóng bức hơn thực tế.
+                    
+                    **3. Giờ trong ngày (Hour)**
+                    - **Ý nghĩa:** Thời điểm lấy dữ liệu (0-23h).
+                    - **Tác động:** Nhiệt độ thường thấp nhất lúc bình minh và cao nhất vào khoảng 14h-15h chiều do độ trễ nhiệt của mặt đất.
+                    """)
+                
+                with col_exp2:
                     st.info("""
-                    **Tọa độ tham khảo:**
-                    - Hà Nội: 21.02, 105.83
-                    - TP.HCM: 10.82, 106.63
-                    - Đà Nẵng: 16.07, 108.22
-                    """)
-                
-                if st.button("🌐 Lấy Dữ liệu & Dự đoán", type="primary"):
-                    weather_data = get_realtime_weather(lat, lon)
+                    **4. Áp suất khí quyển (Pressure)**
+                    - **Ý nghĩa:** Trọng lượng của cột không khí.
+                    - **Tác động:** Áp suất cao thường đi kèm trời nắng, ít mây. Áp suất thấp thường báo hiệu mưa, bão hoặc mây mù (nhiệt độ mát hơn).
                     
-                    if weather_data:
-                        new_data = pd.DataFrame([weather_data])
-                        prediction = st.session_state['temp_model'].predict(new_data)[0]
-                        rmse = st.session_state['temp_rmse']
+                    **5. Tốc độ gió (Wind Speed)**
+                    - **Ý nghĩa:** Sự di chuyển của không khí.
+                    - **Tác động:** Gió giúp tản nhiệt bề mặt, tăng tốc độ bay hơi làm mát. Gió mạnh cũng có thể mang khối khí nóng/lạnh từ nơi khác đến.
+                    
+                    **6. Độ che phủ mây (Cloud Cover)**
+                    - **Ý nghĩa:** Phần trăm bầu trời bị mây che.
+                    - **Tác động:** Ban ngày mây cản nắng (làm mát). Ban đêm mây giữ nhiệt từ mặt đất không cho thoát ra (làm ấm).
+                    """)
+
+            # --- TAB 3: TRENDS ---
+            with temp_tab3:
+                st.subheader("📉 Xu hướng Nhiệt độ Trung bình theo Năm")
+                
+                if health_df is not None:
+                    # Lấy danh sách quốc gia
+                    countries = sorted(health_df['country_name'].unique().tolist())
+                    location_options = ["Toàn cầu"] + countries
+                    
+                    selected_location = st.selectbox("🌍 Chọn phạm vi phân tích:", location_options)
+                    
+                    # Lọc dữ liệu
+                    if selected_location == "Toàn cầu":
+                        # Group theo năm, lấy trung bình
+                        trend_data = health_df.groupby('year')['temperature_celsius'].agg(['mean', 'min', 'max', 'std']).reset_index()
+                        title_chart = "Nhiệt độ Trung bình Toàn cầu (2015-2025)"
+                    else:
+                        filtered_df = health_df[health_df['country_name'] == selected_location]
+                        trend_data = filtered_df.groupby('year')['temperature_celsius'].agg(['mean', 'min', 'max', 'std']).reset_index()
+                        title_chart = f"Nhiệt độ Trung bình tại {selected_location} (2015-2025)"
+                    
+                    # Vẽ biểu đồ
+                    if not trend_data.empty:
+                        fig, ax = plt.subplots(figsize=(12, 6))
                         
-                        st.divider()
-                        st.subheader("📊 Kết quả")
+                        # Vẽ đường trung bình
+                        ax.plot(trend_data['year'], trend_data['mean'], marker='o', linewidth=3, color='#d62728', label='Nhiệt độ TB')
                         
-                        col1, col2, col3 = st.columns(3)
+                        # Vẽ khoảng dao động (Min - Max)
+                        ax.fill_between(trend_data['year'], trend_data['min'], trend_data['max'], color='#d62728', alpha=0.1, label='Khoảng (Min-Max)')
                         
-                        with col1:
-                            st.metric("🌡️ Nhiệt độ TB", f"{prediction:.2f}°C")
-                        with col2:
-                            st.metric("❄️ Min", f"{(prediction - rmse):.2f}°C")
-                        with col3:
-                            st.metric("🔥 Max", f"{(prediction + rmse):.2f}°C")
+                        # Thêm chú thích giá trị lên điểm
+                        for x, y in zip(trend_data['year'], trend_data['mean']):
+                            ax.annotate(f"{y:.1f}°C", (x, y), textcoords="offset points", xytext=(0,10), ha='center', fontsize=9, fontweight='bold')
                         
-                        st.divider()
-                        st.subheader("📋 Dữ liệu Đầu vào")
-                        st.dataframe(new_data, use_container_width=True)
+                        ax.set_title(title_chart, fontsize=14)
+                        ax.set_xlabel('Năm')
+                        ax.set_ylabel('Nhiệt độ (°C)')
+                        ax.grid(True, linestyle='--', alpha=0.5)
+                        ax.legend()
+                        
+                        st.pyplot(fig)
+                        plt.close()
+                        
+                        # Hiển thị bảng dữ liệu
+                        with st.expander("📋 Xem dữ liệu chi tiết"):
+                            st.dataframe(trend_data.style.format("{:.2f}"), use_container_width=True)
+                        
+                        # Nhận xét ngắn gọn
+                        avg_change = trend_data['mean'].iloc[-1] - trend_data['mean'].iloc[0]
+                        trend_emoji = "🔥" if avg_change > 0 else "❄️"
+                        st.info(f"**Nhận xét:** Trong giai đoạn khảo sát, nhiệt độ trung bình tại {selected_location} đã thay đổi khoảng **{avg_change:+.2f}°C** {trend_emoji}.")
+                    else:
+                        st.warning("Không đủ dữ liệu để vẽ biểu đồ.")
+                else:
+                    st.error("Chưa tải được dữ liệu Health Tracker để phân tích xu hướng.")
+
     
     # ===== TRANG HƯỚNG DẪN =====
     else:
@@ -1057,7 +1083,10 @@ def main():
         - Bệnh lây truyền qua sinh vật trung gian (Nhiệt độ, Mưa)
         - Ca nhập viện (Nắng nóng, Cực đoan)
         
-        **4. Dự đoán Nhiệt độ** - Từ dữ liệu thực tế API
+        **4. Dự đoán Nhiệt độ** - Có 3 tab:
+        - **Dự đoán**: Huấn luyện mô hình & Dự báo từ API
+        - **Giải thích**: Kiến thức về các biến khí tượng
+        - **Xu hướng**: Biểu đồ nhiệt độ theo năm
         """)
         
         st.divider()
