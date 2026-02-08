@@ -16,7 +16,6 @@ st.set_page_config(
 )
 
 # ===== HÀM TIỆN ÍCH =====
-@st.cache_data
 def load_health_data():
     """Tải dữ liệu khí hậu và sức khỏe"""
     try:
@@ -27,7 +26,6 @@ def load_health_data():
         st.error("❌ Không tìm thấy file dữ liệu sức khỏe!")
         return None
 
-@st.cache_data
 def analyze_correlations(df):
     """Phân tích tương quan chi tiết giữa các biến"""
     return {
@@ -37,7 +35,6 @@ def analyze_correlations(df):
         'aqi_cardio': df[['air_quality_index', 'cardio_mortality_rate']].corr().iloc[0, 1]
     }
 
-@st.cache_data
 def generate_research_findings(df):
     """Tạo các phát hiện nghiên cứu từ dữ liệu"""
     findings = []
@@ -83,7 +80,6 @@ def generate_research_findings(df):
     
     return pd.DataFrame(findings)
 
-@st.cache_data
 def calculate_model_metrics(df):
     """Tính toán các chỉ số cho từng mô hình"""
     metrics = []
@@ -158,21 +154,60 @@ def train_model(df, features, target, model_type='linear'):
 
 # ===== GIAO DIỆN CHÍNH =====
 def main():
-    st.title("🌍 Phân tích Tác động Khí hậu lên Sức khỏe")
-    st.divider()
+    st.title("Phân tích Tác động Khí hậu lên Sức khỏe")
     
     # Sidebar
+    st.markdown("""
+        <style>
+            /* Ẩn nút tròn (radio button) mặc định */
+            [data-testid="stSidebar"] div[role="radiogroup"] > label > div:first-child {
+                display: none !important;
+            }
+
+            /* Định dạng từng dòng menu */
+            [data-testid="stSidebar"] div[role="radiogroup"] > label {
+                background-color: transparent;
+                padding: 10px 15px;
+                border-radius: 10px;
+                margin-bottom: 5px;
+                transition: all 0.3s;
+                border: none;
+                display: block;
+                cursor: pointer;
+            }
+
+            /* Hiệu ứng khi di chuột qua (Hover) */
+            [data-testid="stSidebar"] div[role="radiogroup"] > label:hover {
+                background-color: rgba(151, 166, 195, 0.1);
+            }
+
+            /* Màu nền và chữ đậm cho mục đang được chọn (giống trong ảnh) */
+            [data-testid="stSidebar"] div[role="radiogroup"] [data-checked="true"] {
+                background-color: #e8eaed !important; /* Màu xám nhạt như ảnh */
+                font-weight: bold;
+                color: #1c1e21;
+            }
+            
+            /* Chỉnh font chữ menu to và rõ hơn */
+            [data-testid="stSidebar"] div[role="radiogroup"] label p {
+                font-size: 18px !important;
+            }
+        </style>
+    """, unsafe_allow_html=True)
+
     with st.sidebar:
-        st.title("📊 Menu Điều hướng")
+        st.title("Menu Điều hướng")
+        
+        # Dùng st.radio nhưng CSS đã ẩn đi các nút tròn
         menu = st.radio(
             "Chọn chức năng:",
-            ["🏠 Tổng quan", "📈 Phân tích & Báo cáo", "🔬 Dự đoán Bệnh", "ℹ️ Hướng dẫn"],
+            ["Tổng quan", "Phân tích & Báo cáo", "Dự đoán Bệnh", "Hướng dẫn"],
             label_visibility="collapsed"
         )
     
     # ===== TỔNG QUAN =====
-    if menu == "🏠 Tổng quan":
-        st.header("📋 Giới thiệu Dự án")
+    if menu == "Tổng quan":
+        st.header("Giới thiệu Dự án")
         
         col1, col2 = st.columns(2)
         
@@ -199,21 +234,21 @@ def main():
         
         if health_df is not None:
             st.divider()
-            st.subheader("📊 Thống kê Tổng quan")
+            st.subheader("Thống kê Tổng quan")
             
             col1, col2, col3, col4 = st.columns(4)
             with col1:
-                st.metric("🗂️ Bản ghi", f"{len(health_df):,}")
+                st.metric("Bản ghi", f"{len(health_df):,}")
             with col2:
-                st.metric("🌍 Quốc gia", health_df['country_name'].nunique())
+                st.metric("Quốc gia", health_df['country_name'].nunique())
             with col3:
-                st.metric("📍 Khu vực", health_df['region'].nunique())
+                st.metric("Khu vực", health_df['region'].nunique())
             with col4:
-                st.metric("📅 Năm", f"{health_df['year'].min()}-{health_df['year'].max()}")
+                st.metric("Năm", f"{health_df['year'].min()}-{health_df['year'].max()}")
     
     # ===== PHÂN TÍCH & BÁO CÁO =====
-    elif menu == "📈 Phân tích & Báo cáo":
-        st.header("📈 Phân tích Dữ liệu & Báo cáo Nghiên cứu")
+    elif menu == "Phân tích & Báo cáo":
+        st.header("Phân tích Dữ liệu & Báo cáo Nghiên cứu")
         
         health_df = load_health_data()
         
@@ -228,30 +263,30 @@ def main():
             
             # TAB 1: TỔNG QUAN
             with tab1:
-                st.subheader("📋 Thông tin Dữ liệu")
+                st.subheader("Thông tin Dữ liệu")
                 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.metric("📊 Tổng bản ghi", f"{len(health_df):,}")
+                    st.metric("Tổng bản ghi", f"{len(health_df):,}")
                 with col2:
-                    st.metric("🔢 Số cột", len(health_df.columns))
+                    st.metric("Số cột", len(health_df.columns))
                 with col3:
-                    st.metric("🌍 Số quốc gia", health_df['country_name'].nunique())
+                    st.metric("Số quốc gia", health_df['country_name'].nunique())
                 
                 st.divider()
                 
                 col1, col2 = st.columns(2)
                 
                 with col1:
-                    st.write("**🔍 Dữ liệu mẫu:**")
+                    st.write("**Dữ liệu mẫu:**")
                     st.dataframe(health_df.head(10), use_container_width=True, height=400)
                 
                 with col2:
-                    st.write("**📊 Thống kê Mô tả:**")
+                    st.write("**Thống kê Mô tả:**")
                     st.dataframe(health_df.describe().T, use_container_width=True, height=400)
                 
                 st.divider()
-                st.write("**📝 Thông tin Cột:**")
+                st.write("**Thông tin Cột:**")
                 
                 col_info = [{
                     'Tên cột': col,
@@ -265,10 +300,9 @@ def main():
             
             # TAB 2: BÁO CÁO NGHIÊN CỨU
             with tab2:
-                st.subheader("📋 Kết quả Nghiên cứu")
+                st.subheader("Kết quả Nghiên cứu")
                 
-                with st.spinner("⏳ Đang phân tích dữ liệu..."):
-                    findings_df = generate_research_findings(health_df)
+                with st.spinner("Đang phân tích dữ liệu..."):
                     correlations = analyze_correlations(health_df)
                 
                 st.info(f"""
@@ -277,23 +311,17 @@ def main():
                 """)
                 
                 st.divider()
-                st.subheader("🔍 Các Phát hiện Chính")
+                st.subheader("Các Phát hiện Chính")
                 
                 # Phát hiện 1: PM2.5
-                pm25_high = health_df[health_df['pm25_ugm3'] > 50]
-                pm25_low = health_df[health_df['pm25_ugm3'] <= 50]
-                resp_diff = pm25_high['respiratory_disease_rate'].mean() - pm25_low['respiratory_disease_rate'].mean()
-                
-                st.write("**1️⃣ Chất lượng Không khí và Bệnh Hô hấp**")
+                st.write("**1. Chất lượng Không khí và Bệnh Hô hấp**")
                 st.info(f"""
-                **Phát hiện:** Tỷ lệ bệnh hô hấp cao hơn **{resp_diff:.1f}%** khi PM2.5 > 50 μg/m³
+                ### **Phát hiện:** Tỷ lệ mắc bệnh hô hấp tương quan với lượng bụi mịn PM2.5
                 
                 **Cách thức tác động:**
-                - PM2.5 (bụi mịn < 2.5 micromet) xâm nhập sâu vào phổi, gây viêm đường hô hấp
+                - PM2.5 xâm nhập sâu vào phổi, gây viêm đường hô hấp
                 - AQI phản ánh tổng hợp các chất ô nhiễm, ảnh hưởng trực tiếp đến hệ hô hấp
-                - Nguy cơ hen suyễn, viêm phế quản tăng đáng kể khi PM2.5 > 50 μg/m³
-                
-                **Mức độ:** {'Cao' if resp_diff > 10 else 'Trung bình'} | **Mẫu:** {len(pm25_high):,}
+                - Nguy cơ hen suyễn, viêm phế quản tăng đáng kể.
                 """)
                 
                 pm25_data = health_df[['pm25_ugm3', 'respiratory_disease_rate']].dropna()
@@ -311,20 +339,15 @@ def main():
                 
                 # Phát hiện 2: Nhiệt độ
                 temp_high = health_df[health_df['temperature_celsius'] > 25]
-                vector_high = temp_high['vector_disease_risk_score'].mean()
-                vector_low = health_df[health_df['temperature_celsius'] <= 25]['vector_disease_risk_score'].mean()
-                vector_diff = vector_high - vector_low
                 
-                st.write("**2️⃣ Nhiệt độ và Bệnh lây truyền**")
+                st.write("**2. Nhiệt độ và Bệnh lây truyền**")
                 st.info(f"""
-                **Phát hiện:** Rủi ro bệnh tăng **{vector_diff:.1f} điểm** khi nhiệt độ > 25°C
+                ### **Phát hiện:** Rủi ro bệnh truyền nhiễm qua côn trùng tăng khi nhiệt độ > 20°C
                 
                 **Cách thức tác động:**
-                - Nhiệt độ > 25°C tạo điều kiện cho muỗi, ruồi sinh sản nhanh
+                - Nhiệt độ > 20°C tạo điều kiện cho muỗi, ruồi sinh sản nhanh
                 - Lượng mưa tạo vũng nước - nơi sinh sản của muỗi sốt rét, sốt xuất huyết
-                - Chu kỳ sinh trưởng muỗi rút ngắn khi nhiệt độ tăng
-                
-                **Mức độ:** {'Cao' if vector_diff > 1 else 'Trung bình'} | **Mẫu:** {len(temp_high):,}
+                - Chu kỳ sinh trưởng muỗi diễn ra nhanh hơn khi nhiệt độ tăng
                 """)
                 
                 temp_data = health_df[['temperature_celsius', 'vector_disease_risk_score']].dropna()
@@ -344,26 +367,22 @@ def main():
                 st.divider()
                 
                 # Phát hiện 3: Nắng nóng
-                heat_wave = health_df[health_df['heat_wave_days'] > 0]
-                admission_ratio = heat_wave['heat_related_admissions'].mean() / health_df['heat_related_admissions'].mean()
                 
-                st.write("**3️⃣ Nắng nóng và Ca Nhập viện**")
+                st.write("**3. Nắng nóng và Ca Nhập viện**")
                 st.info(f"""
-                **Phát hiện:** Ca nhập viện tăng **{(admission_ratio - 1) * 100:.1f}%** trong đợt nắng nóng
+                ### **Phát hiện:** Ca nhập viện tăng trong các đợt nắng nóng dài ngày
                 
                 **Cách thức tác động:**
                 - Cơ thể điều hòa nhiệt liên tục → mệt mỏi, suy giảm chức năng
                 - Nhiệt độ cao gây mất nước, sốc nhiệt, đột quỵ nhiệt
                 - Lượng mưa thấp tăng ô nhiễm không khí
-                
-                **Mức độ:** {'Rất cao' if admission_ratio > 2 else 'Cao'} | **Mẫu:** {len(heat_wave):,}
                 """)
                 
                 heat_grouped = health_df.groupby('heat_wave_days')['heat_related_admissions'].mean()
                 fig, ax = plt.subplots(figsize=(10, 6))
                 ax.plot(heat_grouped.index, heat_grouped.values, 
                        marker='o', linewidth=2, markersize=8, color='orangered')
-                ax.set_xlabel('Số ngày nắng nóng', fontsize=12)
+                ax.set_xlabel('Số ngày nắng nóng liên tục', fontsize=12)
                 ax.set_ylabel('Ca nhập viện TB', fontsize=12)
                 ax.set_title('Ca Nhập viện theo Nắng nóng', fontsize=14, fontweight='bold')
                 ax.grid(True, alpha=0.3)
@@ -371,24 +390,21 @@ def main():
                 st.pyplot(fig)
                 plt.close()
                 
-                with st.expander("📊 Bảng Tóm tắt"):
-                    st.dataframe(findings_df, use_container_width=True)
-                
                 st.divider()
-                st.subheader("📊 Hệ số Tương quan")
+                st.subheader("Hệ số Tương quan")
                 
                 col1, col2 = st.columns(2)
                 with col1:
-                    st.metric("🌫️ PM2.5 ↔ Hô hấp", f"{correlations['pm25_respiratory']:.3f}")
+                    st.metric("PM2.5 ↔ Hô hấp", f"{correlations['pm25_respiratory']:.3f}")
                     st.caption("PM2.5 ↑ → bệnh hô hấp ↑")
-                    st.metric("🦟 Nhiệt độ ↔ Bệnh", f"{correlations['temp_vector']:.3f}")
+                    st.metric("Nhiệt độ ↔ Bệnh", f"{correlations['temp_vector']:.3f}")
                     st.caption("Nhiệt độ ↑ → rủi ro ↑")
                 with col2:
-                    st.metric("🔥 Nắng ↔ Nhập viện", f"{correlations['heat_admission']:.3f}")
+                    st.metric("Nắng ↔ Nhập viện", f"{correlations['heat_admission']:.3f}")
                     st.caption("Nắng nóng ↑ → nhập viện ↑")
                 
                 st.divider()
-                st.subheader("🌍 Phân tích theo Khu vực")
+                st.subheader("Phân tích theo Khu vực")
                 
                 region_stats = health_df.groupby('region').agg({
                     'respiratory_disease_rate': 'mean',
@@ -419,7 +435,7 @@ def main():
                 plt.close()
                 
                 st.divider()
-                st.subheader("💡 Kết luận")
+                st.subheader("Kết luận")
                 st.success("""
                 **Kết luận chính:**
                 1. Chất lượng không khí tác động trực tiếp đến bệnh hô hấp
@@ -437,7 +453,7 @@ def main():
             
             # TAB 3: TƯƠNG QUAN
             with tab3:
-                st.subheader("🔥 Ma trận Tương quan")
+                st.subheader("Ma trận Tương quan")
                 
                 numeric_cols = health_df.select_dtypes(include=[np.number]).columns.tolist()
                 default_vars = ['temperature_celsius', 'pm25_ugm3', 'respiratory_disease_rate', 
@@ -454,7 +470,7 @@ def main():
                 if selected_cols:
                     correlation = health_df[selected_cols].corr()
                     
-                    with st.expander("📊 Ma trận Số"):
+                    with st.expander("Ma trận Số"):
                         st.dataframe(correlation.style.format("{:.3f}"), use_container_width=True)
                     
                     fig, ax = plt.subplots(figsize=(12, 10))
@@ -466,7 +482,7 @@ def main():
                     plt.close()
                     
                     st.divider()
-                    st.subheader("🔍 Tương quan Cao (|r| > 0.5)")
+                    st.subheader("Tương quan Cao (|r| > 0.5)")
                     
                     high_corr = []
                     for i in range(len(correlation.columns)):
@@ -488,13 +504,13 @@ def main():
                     else:
                         st.info("Không có cặp biến nào có |r| > 0.5")
                 else:
-                    st.warning("⚠️ Vui lòng chọn ít nhất một biến")
+                    st.warning("Vui lòng chọn ít nhất một biến")
             
             # TAB 4: HIỆU SUẤT
             with tab4:
-                st.subheader("📈 Đánh giá Mô hình")
+                st.subheader("Đánh giá Mô hình")
                 
-                with st.spinner("⏳ Đang tính toán..."):
+                with st.spinner("Đang tính toán..."):
                     metrics_df = calculate_model_metrics(health_df)
                 
                 st.dataframe(
@@ -533,7 +549,7 @@ def main():
             
             # TAB 5: XU HƯỚNG
             with tab5:
-                st.subheader("📉 Xu hướng Theo Thời gian")
+                st.subheader("Xu hướng Theo Thời gian")
                 
                 col1, col2 = st.columns(2)
                 
@@ -641,8 +657,8 @@ def main():
                     st.warning(f"⚠️ Không có dữ liệu cho {country}")
     
     # ===== DỰ ĐOÁN BỆNH =====
-    elif menu == "🔬 Dự đoán Bệnh":
-        st.header("🔬 Dự đoán Tác động Sức khỏe")
+    elif menu == "Dự đoán Bệnh":
+        st.header("Dự đoán Tác động Sức khỏe")
         
         health_df = load_health_data()
         
@@ -652,180 +668,108 @@ def main():
                 ["Bệnh hô hấp", "Bệnh lây truyền qua sinh vật trung gian", "Ca nhập viện do nắng nóng"]
             )
             
-            if st.button("🚀 Huấn luyện Mô hình", type="primary"):
-                with st.spinner("⏳ Đang huấn luyện..."):
+            # Khởi tạo trạng thái trong session_state nếu chưa có
+            if 'model_trained' not in st.session_state:
+                st.session_state.model_trained = False
+                st.session_state.trained_model = None
+
+            # Nút Huấn luyện
+            if st.button("Huấn luyện Mô hình", type="primary"):
+                with st.spinner("Đang huấn luyện..."):
                     if model_type == "Bệnh hô hấp":
                         model, rmse, r2, X_test, y_test, y_pred = train_model(
                             health_df, ['pm25_ugm3', 'air_quality_index'], 
                             'respiratory_disease_rate', 'linear'
                         )
-                        
-                        st.success(f"✅ R² = {r2:.4f}, RMSE = {rmse:.4f}")
-                        
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        ax.scatter(y_test, y_pred, alpha=0.5, s=20, color='steelblue')
-                        ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 
-                               'r--', lw=2, label='Hoàn hảo')
-                        ax.set_xlabel('Thực tế')
-                        ax.set_ylabel('Dự đoán')
-                        ax.set_title('Dự đoán vs Thực tế', fontweight='bold')
-                        ax.legend()
-                        ax.grid(True, alpha=0.3)
-                        plt.tight_layout()
-                        st.pyplot(fig)
-                        plt.close()
-                        
-                        st.divider()
-                        st.subheader("🔮 Dự đoán Mới")
-                        
-                        col1, col2 = st.columns(2)
-                        with col1:
-                            pm25_input = st.number_input("PM2.5 (μg/m³):", 0.0, 500.0, 50.0)
-                        with col2:
-                            aqi_input = st.number_input("AQI:", 0, 500, 100)
-                        
-                        if st.button("Dự đoán"):
-                            new_data = pd.DataFrame([[pm25_input, aqi_input]], 
-                                                   columns=['pm25_ugm3', 'air_quality_index'])
-                            prediction = model.predict(new_data)[0]
-                            st.metric("Tỷ lệ Bệnh Dự đoán", f"{prediction:.2f}%")
-                            
-                            if prediction > 70:
-                                st.error("⚠️ Nguy cơ cao!")
-                            elif prediction > 50:
-                                st.warning("⚠️ Nguy cơ trung bình")
-                            else:
-                                st.success("✅ Nguy cơ thấp")
-                    
                     elif model_type == "Bệnh lây truyền qua sinh vật trung gian":
                         model, rmse, r2, X_test, y_test, y_pred = train_model(
                             health_df, ['temperature_celsius', 'precipitation_mm', 'heat_related_admissions'],
                             'vector_disease_risk_score', 'forest'
                         )
-                        
-                        st.success(f"✅ R² = {r2:.4f}, RMSE = {rmse:.4f}")
-                        
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        ax.scatter(y_test, y_pred, alpha=0.5, s=20, color='steelblue')
-                        ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 
-                               'r--', lw=2, label='Hoàn hảo')
-                        ax.set_xlabel('Thực tế')
-                        ax.set_ylabel('Dự đoán')
-                        ax.set_title('Dự đoán vs Thực tế', fontweight='bold')
-                        ax.legend()
-                        ax.grid(True, alpha=0.3)
-                        plt.tight_layout()
-                        st.pyplot(fig)
-                        plt.close()
-                        
-                        st.divider()
-                        st.subheader("🔮 Dự đoán Mới")
-                        
-                        col1, col2, col3 = st.columns(3)
-                        with col1:
-                            temp_input = st.number_input("Nhiệt độ (°C):", -20.0, 50.0, 25.0)
-                        with col2:
-                            precip_input = st.number_input("Lượng mưa (mm):", 0.0, 500.0, 100.0)
-                        with col3:
-                            admission_input = st.number_input("Ca nhập viện:", 0.0, 100.0, 10.0)
-                        
-                        if st.button("Dự đoán"):
-                            new_data = pd.DataFrame([[temp_input, precip_input, admission_input]], 
-                                                   columns=['temperature_celsius', 'precipitation_mm', 'heat_related_admissions'])
-                            prediction = model.predict(new_data)[0]
-                            st.metric("Điểm Rủi ro", f"{prediction:.2f}")
-                            
-                            if prediction > 7:
-                                st.error("⚠️ Nguy cơ cao!")
-                            elif prediction > 5:
-                                st.warning("⚠️ Nguy cơ trung bình")
-                            else:
-                                st.success("✅ Nguy cơ thấp")
-                    
                     else:
                         model, rmse, r2, X_test, y_test, y_pred = train_model(
                             health_df, ['temperature_celsius', 'precipitation_mm', 'heat_wave_days', 'extreme_weather_events'],
                             'heat_related_admissions', 'linear'
                         )
-                        
-                        st.success(f"✅ R² = {r2:.4f}, RMSE = {rmse:.4f}")
-                        
-                        fig, ax = plt.subplots(figsize=(10, 6))
-                        ax.scatter(y_test, y_pred, alpha=0.5, s=20, color='steelblue')
-                        ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 
-                               'r--', lw=2, label='Hoàn hảo')
-                        ax.set_xlabel('Thực tế')
-                        ax.set_ylabel('Dự đoán')
-                        ax.set_title('Dự đoán vs Thực tế', fontweight='bold')
-                        ax.legend()
-                        ax.grid(True, alpha=0.3)
-                        plt.tight_layout()
-                        st.pyplot(fig)
-                        plt.close()
-                        
-                        st.divider()
-                        st.subheader("🔮 Dự đoán Mới")
-                        
-                        col1, col2, col3, col4 = st.columns(4)
-                        with col1:
-                            temp_input = st.number_input("Nhiệt độ (°C):", -20.0, 50.0, 30.0)
-                        with col2:
-                            precip_input = st.number_input("Lượng mưa (mm):", 0.0, 500.0, 50.0)
-                        with col3:
-                            heat_days_input = st.number_input("Ngày nắng:", 0, 30, 5)
-                        with col4:
-                            extreme_input = st.number_input("Sự kiện:", 0, 10, 1)
-                        
-                        if st.button("Dự đoán"):
-                            new_data = pd.DataFrame([[temp_input, precip_input, heat_days_input, extreme_input]], 
-                                                   columns=['temperature_celsius', 'precipitation_mm', 'heat_wave_days', 'extreme_weather_events'])
-                            prediction = model.predict(new_data)[0]
-                            st.metric("Ca Nhập viện", f"{prediction:.2f}")
-                            
-                            if prediction > 20:
-                                st.error("⚠️ Nguy cơ cao!")
-                            elif prediction > 10:
-                                st.warning("⚠️ Nguy cơ trung bình")
-                            else:
-                                st.success("✅ Nguy cơ thấp")
+                    
+                    # Lưu vào session state
+                    st.session_state.model_trained = True
+                    st.session_state.trained_model = model
+                    st.session_state.model_metrics = (r2, rmse)
+                    st.session_state.test_data = (y_test, y_pred)
+                    st.session_state.current_model_type = model_type
+
+            # Nếu đã huấn luyện xong, hiển thị kết quả và phần Dự đoán mới (NẰM NGOÀI IF BUTTON)
+            if st.session_state.model_trained and st.session_state.current_model_type == model_type:
+                r2, rmse = st.session_state.model_metrics
+                y_test, y_pred = st.session_state.test_data
+                
+                st.success(f"✅ Mô hình đã sẵn sàng! (R² = {r2:.4f}, RMSE = {rmse:.4f})")
+                
+                # Hiển thị biểu đồ đánh giá
+                fig, ax = plt.subplots(figsize=(10, 4))
+                ax.scatter(y_test, y_pred, alpha=0.5, s=20, color='steelblue')
+                ax.plot([y_test.min(), y_test.max()], [y_test.min(), y_test.max()], 'r--', lw=2)
+                ax.set_title('Đồ thị Dự đoán vs Thực tế')
+                st.pyplot(fig)
+                
+                st.divider()
+                st.subheader("Nhập thông số để Dự đoán")
+
+                # Form dự đoán để tránh việc click vào input cũng gây reload
+                with st.form("prediction_form"):
+                    if model_type == "Bệnh hô hấp":
+                        pm25_in = st.number_input("PM2.5 (μg/m³):", 0.0, 500.0, 50.0)
+                        aqi_in = st.number_input("AQI:", 0, 500, 100)
+                        inputs = pd.DataFrame([[pm25_in, aqi_in]], columns=['pm25_ugm3', 'air_quality_index'])
+                    
+                    elif model_type == "Bệnh lây truyền qua sinh vật trung gian":
+                        temp_in = st.number_input("Nhiệt độ (°C):", -20.0, 50.0, 25.0)
+                        precip_in = st.number_input("Lượng mưa (mm):", 0.0, 500.0, 100.0)
+                        adm_in = st.number_input("Ca nhập viện hiện tại:", 0.0, 100.0, 10.0)
+                        inputs = pd.DataFrame([[temp_in, precip_in, adm_in]], columns=['temperature_celsius', 'precipitation_mm', 'heat_related_admissions'])
+                    
+                    else:
+                        temp_in = st.number_input("Nhiệt độ (°C):", -20.0, 50.0, 30.0)
+                        precip_in = st.number_input("Lượng mưa (mm):", 0.0, 500.0, 50.0)
+                        heat_in = st.number_input("Số ngày nắng nóng:", 0, 30, 5)
+                        ext_in = st.number_input("Sự kiện thời tiết cực đoan:", 0, 10, 1)
+                        inputs = pd.DataFrame([[temp_in, precip_in, heat_in, ext_in]], columns=['temperature_celsius', 'precipitation_mm', 'heat_wave_days', 'extreme_weather_events'])
+
+                    submit_predict = st.form_submit_button("Tính toán kết quả")
+
+                if submit_predict:
+                    prediction = st.session_state.trained_model.predict(inputs)[0]
+                    st.metric("Kết quả Dự đoán", f"{prediction:.2f}%")
     
     # ===== HƯỚNG DẪN =====
     else:
-        st.header("ℹ️ Hướng dẫn Sử dụng")
+        st.header("Hướng dẫn sử dụng")
         
         st.markdown("""
-        ### 📖 Cách sử dụng
+        ### Cách sử dụng
         
-        #### 1️⃣ Tổng quan
+        #### 1. Tổng quan
         - Thông tin về dự án và dữ liệu
         - Thống kê cơ bản
         
-        #### 2️⃣ Phân tích & Báo cáo
+        #### 2. Phân tích & Báo cáo
         - **Tổng quan**: Khám phá dữ liệu
         - **Báo cáo**: Phát hiện chính và biểu đồ
         - **Tương quan**: Mối quan hệ giữa các biến
         - **Hiệu suất**: Đánh giá mô hình
         - **Xu hướng**: Xu hướng theo thời gian
         
-        #### 3️⃣ Dự đoán Bệnh
+        #### 3. Dự đoán Bệnh
         - Chọn loại bệnh
         - Huấn luyện mô hình ML
         - Dự đoán với dữ liệu mới
         
-        ### 💡 Lưu ý
+        ### Lưu ý
         - Dữ liệu được cập nhật định kỳ
         - Sử dụng Machine Learning
         - Kết quả mang tính tham khảo
         - Biểu đồ đã tách riêng
-        """)
-        
-        st.divider()
-        
-        st.success("""
-        **📞 Liên hệ**
-        
-        Email: support@example.com
-        Website: https://example.com
         """)
 
 if __name__ == "__main__":
